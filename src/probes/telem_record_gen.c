@@ -37,6 +37,7 @@ static gchar *opt_class = NULL;
 static gchar *opt_payload = NULL;
 static guint payload_version = 1;
 static gchar *opt_payload_file = NULL;
+static gchar *opt_payload_mcelog = NULL;
 
 static GOptionEntry options[] = {
         { "config-file", 'f', 0, G_OPTION_ARG_FILENAME, &config_file,
@@ -51,6 +52,8 @@ static GOptionEntry options[] = {
           "Record body (max size = 8k)", NULL },
         { "payload-file", 'P', 0, G_OPTION_ARG_STRING, &opt_payload_file,
           "File to read payload from", NULL },
+        { "payload-mcelog", 'x', 0, G_OPTION_ARG_NONE, &opt_payload_mcelog,
+          "Get payload from mcelog", NULL },
         { "record-version", 'R', 0, G_OPTION_ARG_INT, &payload_version,
           "Version number for format of payload (default 1)", NULL },
         { NULL }
@@ -179,6 +182,50 @@ out:
 
 }
 
+int get_payload_from_mcelog(char **payload)
+{
+        int ret = 1;
+        FILE *fp = NULL;
+        char *mcelog_cmd = "mcelog --client";
+        size_t bytes_in = 0;
+        int fr;
+
+
+        if (getuid() != 0) {
+                fprintf(stderr, "Must be root to use mcelog for payload "
+                        "generation\n");
+                ret = 0;
+                goto out;
+        }
+
+        fp = popen(mcelog_cmd, "r");
+        if (!fp) {
+                fprintf(stderr, "Error: mcelog at %s could not be opened "
+                        "for execution\n", mcelog_cmd);
+                ret = 0;
+                goto out;
+        }
+
+        bytes_in = fread(*payload, sizeof(gchar), MAX_PAYLOAD_SIZE - 1, fp);
+        fr = ferror(fp);
+        if (bytes_in == 0 && fr == 0) {
+                fprintf(stderr, "No output from mcelog\n");
+                *payload = strdup("No output from mcelog\n");
+                ret = 1;
+                goto out;
+        } else if (bytes_in == 0 && fr != 0) {
+                fprintf(stderr, "fread failed on %s\n", mcelog_cmd);
+                ret = 0;
+                goto out;
+        }
+
+out:
+        if (fp) {
+                pclose(fp);
+        }
+        return ret;
+}
+
 void get_payload_from_opt(char **payload)
 {
         size_t len = 0;
@@ -217,6 +264,12 @@ int get_payload(char **payload)
         if (opt_payload_file) {
 
                 if (get_payload_from_file(payload)) {
+                        ret = 1;
+                }
+
+        } else if (opt_payload_mcelog) {
+
+                if (get_payload_from_mcelog(payload)) {
                         ret = 1;
                 }
 

@@ -1,0 +1,101 @@
+<6>[ 2671.540147] mce: [Hardware Error]: Machine check events logged
+<0>[ 2671.546865] mce: [Hardware Error]: TSC 4678ebae524 
+<0>[ 2671.548573] mce: [Hardware Error]: PROCESSOR 0:406e3 TIME 1468530346 SOCKET 0 APIC 0 microcode 8a
+<0>[ 2671.550495] mce: [Hardware Error]: Run the above through 'mcelog --ascii'
+<0>[ 2671.552310] mce: [Hardware Error]: Machine check: MCIP not set in MCA handler
+<6>[ 1665.024961] Machine check poll done on CPU 0
+<6>[ 1665.025023] Starting machine check poll CPU 1
+<6>[ 1665.025030] Machine check poll done on CPU 1
+<6>[ 2165.148821] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+<6>[ 2608.945597] Starting machine check poll CPU 0
+<6>[ 2608.945623] Machine check poll done on CPU 0
+<6>[ 2608.945757] Starting machine check poll CPU 1
+<6>[ 2608.945763] Machine check poll done on CPU 1
+<6>[ 2615.874065] Starting machine check poll CPU 0
+<6>[ 2615.874074] Machine check poll done on CPU 0
+<6>[ 2615.874176] Starting machine check poll CPU 1
+<6>[ 2615.874182] Machine check poll done on CPU 1
+<6>[ 2616.162285] Starting machine check poll CPU 0
+<6>[ 2616.162313] Machine check poll done on CPU 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <glib.h>
+#include <sys/types.h>
 
 #include "log.h"
 #include "read_oopsfile.h"
@@ -585,6 +586,7 @@ START_TEST(bug_kernel_handle_payload)
 
         telem_log(LOG_ERR, "Bug kernel handle backtrace: %s\n", pl->str);
 
+
         ck_assert(pl->len > 0);
         ck_assert_str_eq(reason, "BUG: unable to handle kernel paging request at 0000000000002658");
 
@@ -623,6 +625,54 @@ START_TEST(bug_kernel_handle_payload)
 }
 END_TEST
 
+START_TEST(kernel_mce_panic_payload)
+{
+        char *oopsfile = NULL;
+        FILE *MCEfile = NULL;
+        char mce[] = "CPU 0 BANK 1 STATUS CORRECTED ADDR 0xabcd";
+        size_t num_bytes = 0;
+        int inject_ret;
+
+        MCEfile = fopen("mcefile", "w");
+
+        if (MCEfile) {
+                num_bytes = fwrite(mce, 1, sizeof(mce), MCEfile);
+        }
+
+        if (getuid() == 0) {
+                inject_ret = system("mce-inject mcefile");
+        } else {
+                inject_ret = 1;
+        }
+
+        if (MCEfile) {
+                fclose(MCEfile);
+                remove("mcefile");
+        }
+
+        oopsfile = TESTOOPSDIR "/mce_panic.txt";
+        setup_payload(oopsfile);
+
+        telem_log(LOG_ERR, "Machine check events logged: %s\n", pl->str);
+
+        ck_assert(pl->len >= 0);
+        ck_assert_str_eq(reason,  "mce: [Hardware Error]: Machine check events logged");
+        ck_assert(strstr(pl->str, "MCE information"));
+        ck_assert(strstr(pl->str, "TSC : 4678ebae524"));
+        ck_assert(strstr(pl->str, "MCE message : PROCESSOR 0:406e3 TIME 1468530346 SOCKET 0 APIC 0 microcode 8a"));
+        ck_assert(strstr(pl->str, "MCE cause : MCIP not set in MCA handler"));
+        ck_assert(strstr(pl->str, "checking mce log..."));
+
+        if (getuid() == 0 && num_bytes > 0 && !inject_ret) {
+                ck_assert(strstr(pl->str, "no information in mce log") ||
+                          strstr(pl->str, "STATUS"));
+        }
+
+        g_string_free(pl, true);
+
+}
+END_TEST
+
 Suite *config_suite(void)
 {
         // A suite is comprised of test cases, defined below
@@ -648,6 +698,7 @@ Suite *config_suite(void)
         tcase_add_test(t, double_fault_payload);
         tcase_add_test(t, bad_page_map_payload);
         tcase_add_test(t, bug_kernel_handle_payload);
+        tcase_add_test(t, kernel_mce_panic_payload);
 
         //TODO fix
         //tcase_add_test(t, badness_payload);
@@ -669,7 +720,7 @@ Suite *config_suite(void)
         tcase_add_test(t, bad_page_map_oops);
         tcase_add_test(t, bug_kernel_handle_oops);
         tcase_add_test(t, badness_oops);
- */
+*/
         suite_add_tcase(s, t);
 
         return s;

@@ -21,11 +21,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "oops_parser.h"
 #include "log.h"
 
 #define NUM_TAINTED_FLAGS 16
+#define MAX_PAYLOAD_SIZE 8192
 
 enum tm_severity {
         TM_LOW = 1,
@@ -144,6 +147,12 @@ struct oops_pattern oops_patterns_arr[] = {
         },
         {
                 "list_add corruption.",
+                "org.clearlinux/kernel/warning",
+                TM_MEDIUM,
+                false,
+        },
+        {
+                "mce: [Hardware Error]: Machine check events logged",
                 "org.clearlinux/kernel/warning",
                 TM_MEDIUM,
                 false,
@@ -736,6 +745,7 @@ GString *parse_backtrace(struct oops_log_msg *msg)
         GString *backtrace = NULL;
         int frame_counter = 1;
         char *modules = NULL, *kernel_version = NULL, *tainted = NULL;
+        char *mc_line = NULL, *tsc = NULL, *mc_message = NULL, *mc_cause = NULL;
 
         for (int i = msg->length - 1; i > 0; i--) {
                 /* Check if this line is part of a stack trace */
@@ -757,6 +767,23 @@ GString *parse_backtrace(struct oops_log_msg *msg)
                         parse_kernel_cpu_line(line, &kernel_version, &tainted);
                         continue;
                 }
+
+                if (str_starts_with_casei(line, "mce: [Hardware Error]: ")) {
+                        mc_line = line + strlen("mce: [Hardware Error]: ");
+
+                        if (str_starts_with_casei(mc_line, "TSC ")) {
+                                tsc = mc_line + strlen("TSC ");
+                        }
+
+                        if (str_starts_with_casei(mc_line, "PROCESSOR ")) {
+                                mc_message = mc_line;
+                        }
+
+                        if (str_starts_with_casei(mc_line, "Machine check: ")) {
+                                mc_cause = mc_line + strlen("Machine check: ");
+                        }
+                }
+
                 parse_registers(line);
         }
 
@@ -783,6 +810,23 @@ GString *parse_backtrace(struct oops_log_msg *msg)
                 append_registers_to_bt(&backtrace);
         }
 
+        if (mc_line && (tsc || mc_message || mc_cause)) {
+                g_string_append_printf(backtrace, "MCE information\n");
+
+                if (tsc) {
+                        g_string_append_printf(backtrace, "TSC : %s\n", tsc);
+                }
+
+                if (mc_message) {
+                        g_string_append_printf(backtrace, "MCE message : %s\n", mc_message);
+                }
+
+                if (mc_cause) {
+                        g_string_append_printf(backtrace, "MCE cause : %s\n", mc_cause);
+                }
+        }
+
+
         for (elem = head; elem != NULL; elem = elem->next, frame_counter++) {
                 g_string_append_printf(backtrace, "#%d %s - [%s]\n", frame_counter,
                                        elem->function ? elem->function : "???",
@@ -793,6 +837,52 @@ GString *parse_backtrace(struct oops_log_msg *msg)
         return backtrace;
 }
 
+int get_mce_payload(GString *backtrace)
+{
+        FILE *fp = NULL;
+        char *mcelog_filename = "/var/log/mcelog";
+        char *mcelog_out = NULL;
+        size_t bytes_in = 0;
+        int f_err, ret;;
+
+/*        if (getuid() != 0) {
+                fprintf(stderr, "Must be root to use mcelog for payload generatio\n");
+                ret = 1;
+                goto out;
+        }
+*/
+        fp = fopen(mcelog_filename, "r");
+        if (!fp) {
+                fprintf(stderr, "Error: mce log could not be opened for reading\n");
+                ret = 1;
+                goto out;
+        }
+
+        bytes_in = fread(mcelog_out, sizeof(gchar), MAX_PAYLOAD_SIZE - 1, fp);
+        f_err = ferror(fp);
+        if (bytes_in == 0) {
+                if (f_err == 0) {
+                        fprintf(stderr, "No information in mce log\n");
+                        g_string_append_printf(backtrace, "no information in mce log\n");
+                        ret = 0;
+                        goto out;
+                } else {
+                        fprintf(stderr, "fread failed on %s\n", mcelog_filename);
+                        ret = 1;
+                        goto out;
+                }
+        }
+
+        g_string_append(backtrace, mcelog_out);
+        ret = 0;
+
+out:
+        if (fp) {
+                pclose(fp);
+        }
+        return ret;
+}
+
 GString *parse_payload(struct oops_log_msg *msg)
 {
         GString *payload, *backtrace;
@@ -800,7 +890,14 @@ GString *parse_payload(struct oops_log_msg *msg)
         payload = g_string_new("Crash Report:\n");
         g_string_append_printf(payload, "Reason: %s\n", msg->lines[0]);
         backtrace = parse_backtrace(msg);
-        g_string_append (payload, backtrace->str);
+        if (str_starts_with_casei(msg->lines[0], "mce")) {
+                g_string_append(backtrace, "checking mce log...\n");
+                if (get_mce_payload(backtrace)) {
+                        fprintf(stderr, "Error reading mcelog\n");
+                }
+        }
+
+        g_string_append(payload, backtrace->str);
         g_string_free(backtrace, true);
         return payload;
 
