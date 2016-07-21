@@ -26,9 +26,9 @@
 
 #include "oops_parser.h"
 #include "log.h"
+#include "mcelog_parser.h"
 
 #define NUM_TAINTED_FLAGS 16
-#define MAX_PAYLOAD_SIZE 8192
 
 enum tm_severity {
         TM_LOW = 1,
@@ -835,52 +835,6 @@ GString *parse_backtrace(struct oops_log_msg *msg)
 
         stack_frame_free(&head);
         return backtrace;
-}
-
-int get_mce_payload(GString *backtrace)
-{
-        FILE *fp = NULL;
-        char *mcelog_filename = "/var/log/mcelog";
-        char *mcelog_out = NULL;
-        size_t bytes_in = 0;
-        int f_err, ret;;
-
-/*        if (getuid() != 0) {
-                fprintf(stderr, "Must be root to use mcelog for payload generatio\n");
-                ret = 1;
-                goto out;
-        }
-*/
-        fp = fopen(mcelog_filename, "r");
-        if (!fp) {
-                fprintf(stderr, "Error: mce log could not be opened for reading\n");
-                ret = 1;
-                goto out;
-        }
-
-        bytes_in = fread(mcelog_out, sizeof(gchar), MAX_PAYLOAD_SIZE - 1, fp);
-        f_err = ferror(fp);
-        if (bytes_in == 0) {
-                if (f_err == 0) {
-                        fprintf(stderr, "No information in mce log\n");
-                        g_string_append_printf(backtrace, "no information in mce log\n");
-                        ret = 0;
-                        goto out;
-                } else {
-                        fprintf(stderr, "fread failed on %s\n", mcelog_filename);
-                        ret = 1;
-                        goto out;
-                }
-        }
-
-        g_string_append(backtrace, mcelog_out);
-        ret = 0;
-
-out:
-        if (fp) {
-                pclose(fp);
-        }
-        return ret;
 }
 
 GString *parse_payload(struct oops_log_msg *msg)

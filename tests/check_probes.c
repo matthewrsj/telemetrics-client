@@ -628,27 +628,6 @@ END_TEST
 START_TEST(kernel_mce_panic_payload)
 {
         char *oopsfile = NULL;
-        FILE *MCEfile = NULL;
-        char mce[] = "CPU 0 BANK 1 STATUS CORRECTED ADDR 0xabcd";
-        size_t num_bytes = 0;
-        int inject_ret;
-
-        MCEfile = fopen("mcefile", "w");
-
-        if (MCEfile) {
-                num_bytes = fwrite(mce, 1, sizeof(mce), MCEfile);
-        }
-
-        if (getuid() == 0) {
-                inject_ret = system("mce-inject mcefile");
-        } else {
-                inject_ret = 1;
-        }
-
-        if (MCEfile) {
-                fclose(MCEfile);
-                remove("mcefile");
-        }
 
         oopsfile = TESTOOPSDIR "/mce_panic.txt";
         setup_payload(oopsfile);
@@ -663,10 +642,20 @@ START_TEST(kernel_mce_panic_payload)
         ck_assert(strstr(pl->str, "MCE cause : MCIP not set in MCA handler"));
         ck_assert(strstr(pl->str, "checking mce log..."));
 
-        if (getuid() == 0 && num_bytes > 0 && !inject_ret) {
-                ck_assert(strstr(pl->str, "no information in mce log") ||
-                          strstr(pl->str, "STATUS"));
-        }
+        ck_assert(strstr(pl->str, "Hardware event. This is not a software error."));
+        ck_assert(strstr(pl->str, "MCE 0"));
+        ck_assert(strstr(pl->str, "CPU 0 BANK 1"));
+        ck_assert(strstr(pl->str, "ADDR abcd"));
+        ck_assert(strstr(pl->str, "TIME"));
+        ck_assert(strstr(pl->str, "MCG status:"));
+        ck_assert(strstr(pl->str, "MCi status:"));
+        ck_assert(strstr(pl->str, "Corrected error"));
+        ck_assert(strstr(pl->str, "Error enabled"));
+        ck_assert(strstr(pl->str, "MCi_ADDR register valid"));
+        ck_assert(strstr(pl->str, "MCA: No Error"));
+        ck_assert(strstr(pl->str, "STATUS 9400000000000000 MCGSTATUS 0"));
+        ck_assert(strstr(pl->str, "MCGCAP c09 APICID 0 SOCKETID 0"));
+        ck_assert(strstr(pl->str, "CPUID"));
 
         g_string_free(pl, true);
 

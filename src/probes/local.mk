@@ -68,7 +68,9 @@ endif
 
 %C%_pstoreprobe_SOURCES = \
 	%D%/pstore_probe.c \
-	%D%/oops_parser.c
+	%D%/oops_parser.c \
+	%D%/mcelog_parser.h \
+	%D%/mcelog_parser.c
 %C%_pstoreprobe_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(GLIB_CFLAGS)
@@ -91,7 +93,9 @@ endif
         %D%/klog_scanner.c \
 	%D%/klog_scanner.h \
 	%D%/oops_parser.h \
-	%D%/oops_parser.c
+	%D%/oops_parser.c \
+	%D%/mcelog_parser.h \
+	%D%/mcelog_parser.c
 %C%_klogscanner_CFLAGS = \
         $(AM_CFLAGS) \
 	$(GLIB_CFLAGS)
@@ -120,6 +124,8 @@ endif
 
 %C%_oopsprobe_SOURCES = \
         %D%/oops_probe.c \
+	%D%/mcelog_parser.h \
+	%D%/mcelog_parser.c \
 	%D%/oops_parser.c
 %C%_oopsprobe_CFLAGS = \
         $(AM_CFLAGS) \
